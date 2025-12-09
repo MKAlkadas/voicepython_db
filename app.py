@@ -7,12 +7,22 @@ from bot_handlers import start, handle_voice, handle_text
 
 # Load environment variables
 load_dotenv()
+if not os.path.exists("temp"):
+    os.makedirs("temp", exist_ok=True)
+    print("Created temp directory")
 
+    
 # Logging setup
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.INFO,
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('bot.log', encoding='utf-8')
+    ]
 )
+logger = logging.getLogger(__name__)                          
+
 
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
