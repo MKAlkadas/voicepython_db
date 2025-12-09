@@ -1,8 +1,9 @@
+python-version==3.11.0
+
 python-telegram-bot==21.7
 reportlab==4.0.4
 google-cloud-speech==2.21.0
 pydub==0.25.1
 python-dotenv==1.0.0
-imageio-ffmpeg==0.4.9
 arabic-reshaper==3.0.0
 python-bidi==0.4.2
