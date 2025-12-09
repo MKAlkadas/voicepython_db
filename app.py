@@ -2,7 +2,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
-from src.bot_handlers import start, handle_voice, handle_text
+from bot_handlers import start, handle_voice, handle_text
 
 # Load environment variables
 load_dotenv()

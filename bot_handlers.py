@@ -2,10 +2,10 @@ import os
 import logging
 from telegram import Update
 from telegram.ext import ContextTypes
-from src.stt_service import STTService
-from src.nlp_service import NLPProcessor
-from src.pdf_service import PDFGenerator
-from src.db_service import DBService
+from stt_service import STTService
+from nlp_service import NLPProcessor
+from pdf_service import PDFGenerator
+from db_service import DBService
 
 # Initialize services
 # You might want to pass config here in a real app
