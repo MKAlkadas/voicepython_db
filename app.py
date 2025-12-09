@@ -1,6 +1,7 @@
 import os
 import logging
 from dotenv import load_dotenv
+from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 from bot_handlers import start, handle_voice, handle_text
 
@@ -17,6 +18,7 @@ def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
         print("Error: TELEGRAM_BOT_TOKEN not found in .env file.")
+        print("Please set TELEGRAM_BOT_TOKEN in Render Environment Variables")
         return
 
     application = ApplicationBuilder().token(token).build()
@@ -26,7 +28,7 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_text))
 
     print("Bot is running...")
-    application.run_polling()
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
     main()

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: telegram-quote-bot
+    env: python
+    region: frankfurt  # أو أي region قريب منك
+    plan: free
+    buildCommand: |
+      apt-get update
+      apt-get install -y ffmpeg
+      pip install -r requirements.txt
+    startCommand: python app.py
+    pythonVersion: "3.11.0"
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        sync: false  # إذا كنت تستخدم Google Speech-to-Text

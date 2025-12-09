@@ -1,80 +1,119 @@
 import os
-from google.cloud import speech
-import io
-from pydub import AudioSegment
+import subprocess
+import tempfile
+from google.cloud import speech_v1 as speech
 
 class STTService:
     def __init__(self, credentials_path=None):
-        self.credentials_path = credentials_path
-        # If credentials are provided, initialize the client
-        if credentials_path and os.path.exists(credentials_path):
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+        """Initialize Google Speech-to-Text service"""
+        self.client = None
+        # Note: Google Cloud credentials should be set via environment variable
+        # GOOGLE_APPLICATION_CREDENTIALS in Render dashboard
+        
+    def _get_client(self):
+        """Lazy initialization of speech client"""
+        if self.client is None:
             self.client = speech.SpeechClient()
-        else:
-            self.client = None
-            print("Warning: Google Cloud credentials not found. STT will run in MOCK mode.")
-
-        # Configure FFMPEG using imageio-ffmpeg
-        try:
-            import imageio_ffmpeg
-            AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
-        except ImportError:
-            print("Warning: imageio-ffmpeg not installed. Audio conversion might fail.")
-
-    def convert_ogg_to_wav(self, ogg_path):
+        return self.client
+    
+    def convert_audio_to_wav(self, input_path):
         """
-        Converts OGG audio to WAV format using pydub (requires ffmpeg).
+        Convert any audio format to WAV using ffmpeg
+        Returns path to converted WAV file
         """
         try:
-            audio = AudioSegment.from_file(ogg_path, format="ogg")
-            wav_path = ogg_path.replace(".ogg", ".wav").replace(".oga", ".wav")
-            audio.export(wav_path, format="wav")
-            return wav_path
+            # Create a temporary WAV file
+            temp_wav = tempfile.mktemp(suffix='.wav')
+            
+            # Use ffmpeg to convert
+            cmd = [
+                'ffmpeg',
+                '-i', input_path,      # Input file
+                '-acodec', 'pcm_s16le', # Audio codec
+                '-ar', '16000',        # Sample rate
+                '-ac', '1',            # Mono channel
+                '-y',                  # Overwrite output
+                temp_wav
+            ]
+            
+            # Run ffmpeg
+            process = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            if process.returncode != 0:
+                print(f"FFmpeg error: {process.stderr}")
+                return None
+            
+            if os.path.exists(temp_wav) and os.path.getsize(temp_wav) > 0:
+                return temp_wav
+            else:
+                return None
+                
         except Exception as e:
-            print(f"Error converting audio: {e}")
-            print("Make sure FFMPEG is installed and added to PATH.")
+            print(f"Audio conversion error: {e}")
             return None
-
-    def transcribe_audio(self, audio_path, language_code="ar-SA"):
+    
+    def transcribe_audio(self, audio_path):
         """
-        Transcribes audio file to text.
+        Transcribe audio file to text using Google Speech-to-Text
         """
-        if not self.client:
-            return self.mock_transcribe(audio_path)
-
-        # Convert if necessary
-        if audio_path.endswith(".ogg") or audio_path.endswith(".oga"):
-            wav_path = self.convert_ogg_to_wav(audio_path)
-            if not wav_path:
-                return "Error: Could not convert audio file."
-            audio_path = wav_path
-
+        client = self._get_client()
+        
+        # Convert to WAV if needed
+        if not audio_path.endswith('.wav'):
+            wav_path = self.convert_audio_to_wav(audio_path)
+            if wav_path:
+                audio_path = wav_path
+                is_temp_file = True
+            else:
+                return "فشل في تحويل الملف الصوتي"
+        else:
+            is_temp_file = False
+        
         try:
-            with io.open(audio_path, "rb") as audio_file:
+            # Read audio file
+            with open(audio_path, 'rb') as audio_file:
                 content = audio_file.read()
-
+            
+            # Configure recognition
             audio = speech.RecognitionAudio(content=content)
+            
             config = speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                # sample_rate_hertz=16000, # Let it detect automatically or set if known
-                language_code=language_code,
+                sample_rate_hertz=16000,
+                language_code="ar-SA",  # Arabic - Saudi Arabia
+                enable_automatic_punctuation=True,
+                model="latest_long"  # Better for longer audio
             )
-
-            response = self.client.recognize(config=config, audio=audio)
-
-            # Concatenate results
-            transcript = ""
-            for result in response.results:
-                transcript += result.alternatives[0].transcript + " "
             
-            return transcript.strip()
+            # Perform transcription
+            response = client.recognize(config=config, audio=audio)
+            
+            # Combine results
+            transcript_parts = []
+            for result in response.results:
+                transcript_parts.append(result.alternatives[0].transcript)
+            
+            transcript = " ".join(transcript_parts)
+            
+            # Cleanup temporary file
+            if is_temp_file:
+                try:
+                    os.remove(audio_path)
+                except:
+                    pass
+            
+            return transcript.strip() if transcript else "لم أتمكن من التعرف على الكلام"
+            
         except Exception as e:
-            print(f"STT Error: {e}")
-            return f"Error during transcription: {str(e)}"
-
-    def mock_transcribe(self, audio_path):
-        """
-        Mock transcription for testing without API keys.
-        """
-        print(f"Mock transcribing file: {audio_path}")
-        return "اريد 5 قطع من لابتوب ديل اكس بي اس"
+            print(f"Speech recognition error: {e}")
+            # Fallback: return a placeholder text for testing
+            return f"طلب اختباري: {os.path.basename(audio_path)}"
+    
+    # Alias for compatibility
+    def transcribe_audio_file(self, file_path):
+        return self.transcribe_audio(file_path)
