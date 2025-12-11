@@ -2,11 +2,19 @@ services:
   - type: web
     name: telegram-quote-bot
     env: python
+    region: frankfurt
+    plan: free
     buildCommand: |
       mkdir -p temp
-      chmod 755 temp
       apt-get update
       apt-get install -y ffmpeg
       pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: gunicorn app:flask_app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
     pythonVersion: "3.11.0"
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: PORT
+        value: 10000
+    healthCheckPath: /
+    autoDeploy: true
